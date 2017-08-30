@@ -6,7 +6,6 @@ from urllib import parse
 from requests import Response
 
 import requests
-from django.conf import settings
 
 
 class APIBase(object):
@@ -33,28 +32,36 @@ class SBTAPI(APIBase):
     Base for SBT API
     """
 
-    url: str = settings.SBT_API_URL
+    url: str = 'https://{env}.solutionsbytext.com/SBT.App.SetUp/RSServices/'
+    api_key: str = None
     security_token: str = None
-    org_code: str = settings.SBT_ORG_CODE
+    org_code: str = None
+    self.use_test = None
 
-    def __init__(self):
-        self.security_token = self.get_security_token()  # at the moment, we just always get a new token
+    def __init__(self, api_key: str, org_code: str, security_token: str = None, use_test: bool = True):
+        self.api_key = api_key
+        self.org_code = org_code
+        self.security_token = security_token
+        self.use_test = use_test
+        
 
-    def get_security_token(self, api_key: str = settings.SBT_API_KEY) -> str:
+    def get_security_token(self, api_key: str = None) -> str:
         """
         This method uses the API Key to obtain a new Security Token
         """
-
+        api_key =  api_key if api_key else self.api_key
+        env: str = 'test' if self.use_test else 'ui'
         url: str = ''.join(
             [
-                self.url,
+                self.url.format(env),
                 'LoginAPIService.svc/AuthenticateAPIKey?',
                 parse.urlencode({'APIKey': api_key})
             ]
         )
 
         json_data: dict = requests.get(url).json()
-        return json_data['AuthenticateAPIKeyResult'].get('SecurityToken')
+        self.security_token = json_data['AuthenticateAPIKeyResult'].get('SecurityToken')
+        return self.security_token
 
     def get_default_data(self, data: dict) -> dict:
         """
